@@ -1,6 +1,5 @@
 import os
-
-import chainlit as cl
+import textwrap
 from langchain.chains import RetrievalQA
 from langchain.embeddings import HuggingFaceEmbeddings, HuggingFaceInstructEmbeddings
 from langchain.llms import CTransformers
@@ -195,73 +194,6 @@ def retrieve_bot_answer(query):
     bot_response = qa_bot_instance({"query": query})
     return bot_response
 
-
-@cl.on_chat_start
-async def initialize_bot():
-    """
-    Initializes the bot when a new chat starts.
-
-    This asynchronous function creates a new instance of the retrieval QA bot,
-    sends a welcome message, and stores the bot instance in the user's session.
-    """
-    qa_chain = create_retrieval_qa_bot()
-    welcome_message = cl.Message(content="Starting the bot...")
-    await welcome_message.send()
-    welcome_message.content = (
-        "Hi, Welcome to Chat With Documents using Llama2 and LangChain."
-    )
-    await welcome_message.update()
-
-    cl.user_session.set("chain", qa_chain)
-
-
-@cl.on_message
-async def process_chat_message(message):
-    """
-    Processes incoming chat messages.
-
-    This asynchronous function retrieves the QA bot instance from the user's session,
-    sets up a callback handler for the bot's response, and executes the bot's
-    call method with the given message and callback. The bot's answer and source
-    documents are then extracted from the response.
-    """
-
-    print(message)
-
-    qa_chain = cl.user_session.get("chain")
-
-
-    llm_response = qa_chain(message)
-    process_llm_response(llm_response)
-
-
-    callback_handler = cl.AsyncLangchainCallbackHandler(
-        stream_final_answer=True, answer_prefix_tokens=["FINAL", "ANSWER"]
-    )
-
-    print(callback_handler)
-
-    callback_handler.answer_reached = True
-    response = await qa_chain.acall(message, callbacks=[callback_handler])
-    
-    print(response)
-
-    bot_answer = response["result"]
-
-    print(bot_answer)
-    
-    source_documents = response["source_documents"]
-
-    if source_documents:
-        bot_answer += f"\nSources:" + str(source_documents)
-    else:
-        bot_answer += "\nNo sources found"
-
-    await cl.Message(content=bot_answer).send()
-
-
-
-import textwrap
 def wrap_text_preserve_newlines(text, width=110):
     # Split the input text into lines based on newline characters
     lines = text.split('\n')
@@ -280,7 +212,9 @@ def process_llm_response(llm_response):
     for source in llm_response["source_documents"]:
         print(source.metadata['source'])
 
-
-qa_chain = create_retrieval_qa_bot()
-llm_response = qa_chain("What is Flow blockchain?")
-process_llm_response(llm_response)
+while True:
+    query = input("Enter your question: ")
+    if query == 'quit':
+        break
+    llm_response = retrieve_bot_answer(query)
+    process_llm_response(llm_response)
